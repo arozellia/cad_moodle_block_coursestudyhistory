@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);
+declare( strict_types=1 );
 
 // This file is part of Moodle - http://moodle.org/
 //
@@ -31,136 +31,159 @@ declare(strict_types=1);
  * @copyright  2019 Tia <tia@techiasolutions.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class block_coursestudyhistory extends \block_base
-{
-    /**
-     * @var string
-     */
-    public $title;
-
-    /**
-     * @var string
-     */
-    public $content;
-
-    /**
-     * Initializes class member variables.
-     * @throws coding_exception
-     */
-    public function init()
-    {
-        // Needed by Moodle to differentiate between blocks.
-        $this->title = get_string('pluginname', 'block_coursestudyhistory');
-    }
+class block_coursestudyhistory extends block_base {
+	/**
+	 * @var string
+	 */
+	public $content;
+	
+	private $percentCompleted;
+	/**
+	 * @var string
+	 */
+	public $title;
+	
+	/**
+	 * Returns completion percent.
+	 * @return float
+	 *
+	 */
+	private function get_completion_data(): float {
+		return (float)$this->percentCompleted;
+	}
+	
+	/**
+	 * Returns the block contents.
+	 *
+	 * @return stdClass The block contents.
+	 * @throws moodle_exception
+	 */
+	public function get_content() {
+		
+		if ($this->content !== null) {
+			return $this->content;
+		}
+		
+		if (empty($this->instance)) {
+			$this->content = '';
+			return $this->content;
+		}
+		
+		$this->content = new stdClass();
+		$this->content->items = [];
+		$this->content->icons = [];
+		$this->content->footer = '';
+		$this->set_completion_data();
+		
+		if (!empty($this->config->text)) {
+			$this->content->text = $this->config->text;
+		} else {
+			$thisPercentCompleted = (float)$this->get_completion_data();
+			
+			if (empty($thisPercentCompleted) || $thisPercentCompleted === 0) {
+				$thisPercentCompleted = .5;
+			} 
+			
+			$text = '<div class="progress">
+					  <div class="progress-bar progress-bar-info progress-bar-striped" role="progressbar"
+					  aria-valuenow="';
+			$text .= $thisPercentCompleted;
+			$text .= '" aria-valuemin="0" aria-valuemax="100" style="width:';
+			$text .= $thisPercentCompleted;
+			$text .= '%">';
+			$text .= $thisPercentCompleted . '%';
+			$text .= '</div></div>';
+			$text .= '<div  class="text-center"><a href = "'
+				. new moodle_url('/report/coursestudyhistory/')
+				. '"> View progress </a></div>';
+			
+			$this->content->text = $text;
+		}
+		
+		return $this->content;
+	}
+	
+	/**
+	 * Defines configuration data.
+	 *
+	 * The function is called immediately after init().
+	 *
+	 * @throws coding_exception
+	 */
+	public function specialization() {
+		
+		// Load user defined title and make sure it's never empty.
+		if (empty($this->config->title)) {
+			$this->title = get_string('pluginname', 'block_coursestudyhistory');
+		} else {
+			$this->title = $this->config->title;
+		}
+	}
+	
+	/**
+	 * Allow multiple instances in a single course?
+	 *
+	 * @return bool True if multiple instances are allowed, false otherwise.
+	 */
+	public function instance_allow_multiple() {
+		return true;
+	}
+	
+	function _self_test() {
+		return true;
+	}
+	
+	function applicable_formats() {
+		return [
+			'all' => true,
+			'mod' => true,
+		];
+	}
+	
+	/**
+	 * Initializes class member variables.
+	 *
+	 * @throws coding_exception
+	 */
+	public function init() {
+		// Needed by Moodle to differentiate between blocks.
+		$this->title = get_string('pluginname', 'block_coursestudyhistory');
+	}
 	
 	/**
 	 * Returns the number of courses completed based on certificate issues.
 	 *
-	 * @return array Completion percent data.
-	 * @throws \moodle_exception
+	 * @return float Completion percent data.
+	 * @throws dml_exception
 	 */
-	private function get_completion_data() : float {
+	private function set_completion_data(): float {
 		global $USER, $DB;
 		
-		$sql = "select round(count(distinct cert.course + ccert.course)  / count(distinct ctx.instanceid), 2) * 100 as percentcompleted
+		if ($this->percentCompleted !== null) {
+			return $this->percentCompleted;
+		}
+		
+		$sql = "select ifnull(round((sum(case when cc.timecompleted is not null then 1 else 0 end )/ count(c.id)) * 100),0) as percentcompleted
+					, count(c.id) as coursestocomplete
+				    , sum(case when cc.timecompleted is not null then 1 else 0 end ) as coursescompleted
 				from {role_assignments} ra
 				inner join {context} ctx on ctx.id = ra.contextid and ctx.contextlevel = 50
-			    inner join mdl_course c on c.id = ctx.instanceid and c.visible = 1
-				left outer join {certificate} cert on cert.course = ctx.instanceid
-				left outer join {certificate_issues} issues on issues.certificateid = cert.id
-				left outer join {customcert} ccert on cert.course = ctx.instanceid
-				left outer join {customcert_issues} cissues on issues.certificateid = cert.id
+				inner join {course} c on c.id = ctx.instanceid and c.visible = 1
+				inner join {course_completions} cc on cc.course = c.id and cc.userid = ra.userid
 				where ra.userid = ?
-				and ra.roleid = 5";
+				and ra.roleid = 5
+				group by ra.userid";
 		$result = $DB->get_record_sql($sql, [$USER->id]);
 		
-		return (float) $result->percentcompleted;
-	}
-
-    /**
-     * Returns the block contents.
-     *
-     * @return stdClass The block contents.
-     * @throws \moodle_exception
-     */
-    public function get_content()
-    {
+		if (!$result) {
+			$result = new stdClass();
+			$result->percentcompleted = 0;
+			$result->coursestocomplete = 0;
+			$result->coursescompleted = 0;
+		}
 		
-        if ($this->content !== null) {
-            return $this->content;
-        }
-
-        if (empty($this->instance)) {
-            $this->content = '';
-            return $this->content;
-        }
-
-        $this->content = new stdClass();
-        $this->content->items = array();
-        $this->content->icons = array();
-        $this->content->footer = '';
-
-        if (!empty($this->config->text)) {
-            $this->content->text = $this->config->text;
-        } else {
-	        $percentcompleted = (float) $this->get_completion_data();
-	        
-        	$text = '<div class="progress">
-					  <div class="progress-bar progress-bar-info progress-bar-striped" role="progressbar"
-					  aria-valuenow="';
-        	$text .= $percentcompleted;
-        	$text .= '" aria-valuemin="0" aria-valuemax="100" style="width:';
-        	$text .= $percentcompleted;
-        	$text .= '%">';
-        	$text .= $percentcompleted . '%';
-			$text .= '</div></div>';
-            $text .= '<div  class="text-center"><a href = "' 
-	            . new moodle_url('/report/coursestudyhistory/')
-                . '"> View progress </a></div>';
-            
-            $this->content->text = $text;
-        }
-
-        return $this->content;
-    }
-
-    /**
-     * Defines configuration data.
-     *
-     * The function is called immediatly after init().
-     * @throws coding_exception
-     */
-    public function specialization()
-    {
-
-        // Load user defined title and make sure it's never empty.
-        if (empty($this->config->title)) {
-            $this->title = get_string('pluginname', 'block_coursestudyhistory');
-        } else {
-            $this->title = $this->config->title;
-        }
-    }
-
-    /**
-     * Allow multiple instances in a single course?
-     *
-     * @return bool True if multiple instances are allowed, false otherwise.
-     */
-    public function instance_allow_multiple()
-    {
-        return true;
-    }
-
-    function _self_test()
-    {
-        return true;
-    }
-
-    function applicable_formats()
-    {
-        return array(
-            'all' => true,
-            'mod' => true,
-        );
-    }
+		$this->percentCompleted = (float)$result->percentcompleted;
+		
+		return $this->percentCompleted;
+	}
 }
