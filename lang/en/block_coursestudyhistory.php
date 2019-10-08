@@ -26,5 +26,6 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Course and Study History';
+$string['usertitle'] = 'My Progress and Results';
 $string['privacy:metadata'] = 'The Course Study History block only displays existing course data.';
 $string['coursestudycertificates:addinstance'] = 'Add a course study history block';

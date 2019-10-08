@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'block_coursestudyhistory';
 $plugin->release = '0.1.0';
-$plugin->version = 2019092800;
+$plugin->version = 2019092801;
 $plugin->requires = 2015111600;
 $plugin->maturity = MATURITY_ALPHA;
 $plugin->depenencies = [

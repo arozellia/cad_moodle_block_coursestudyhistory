@@ -147,7 +147,7 @@ class block_coursestudyhistory extends block_base {
 	 */
 	public function init() {
 		// Needed by Moodle to differentiate between blocks.
-		$this->title = get_string('pluginname', 'block_coursestudyhistory');
+		$this->title = get_string('usertitle', 'block_coursestudyhistory');
 	}
 	
 	/**
