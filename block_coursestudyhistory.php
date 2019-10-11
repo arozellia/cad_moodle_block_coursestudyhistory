@@ -114,7 +114,7 @@ class block_coursestudyhistory extends block_base {
 		
 		// Load user defined title and make sure it's never empty.
 		if (empty($this->config->title)) {
-			$this->title = get_string('pluginname', 'block_coursestudyhistory');
+			$this->title = get_string('usertitle', 'block_coursestudyhistory');
 		} else {
 			$this->title = $this->config->title;
 		}
@@ -147,7 +147,7 @@ class block_coursestudyhistory extends block_base {
 	 */
 	public function init() {
 		// Needed by Moodle to differentiate between blocks.
-		$this->title = get_string('usertitle', 'block_coursestudyhistory');
+		$this->title = get_string('pluginname', 'block_coursestudyhistory');
 	}
 	
 	/**
